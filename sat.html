@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    html,
+    body {
+      overflow: hidden;
+      margin: 0px;
+      padding: 0px;
+      height: 100%;
+      font-family: helvetica, arial, sans-serif;
+    }
+    #cesiumContainer {
+      height: 100%;
+    }
+    #loading {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      opacity: 0.8;
+      position: fixed;
+      top:0;
+      left: 0;
+      z-index: 1;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s, visibility 0.5s;
+      visibility: visible;
+    }
+    .disappear {
+      opacity: 0!important;
+      visibility: hidden!important;
+    }
+  </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    
+    <script>
+        // 初始化Cesium viewer
+        var viewer = new Cesium.Viewer('cesiumContainer', {
+          imageryProvider: new Cesium.TileMapServiceImageryProvider({
+            url: Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII"),
+          }),
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          infoBox: false,
+          skyBox: false,
+          navigationHelpButton: false,
+          sceneModePicker: false
+        });
+        viewer.scene.globe.enableLighting = false;
+        
+        // 添加卫星轨道
+        /**
+         * 添加卫星轨道
+         * @param {number} semiMajorAxis 轨道半长轴
+         * @param {number} eccentricity 轨道离心率
+         * @param {number} inclination 轨道倾角
+         * @param {number} rightAscensionOfAscendingNode 右上升角
+         * @param {number} argumentOfPeriapsis 近地点角距
+         * @param {number} trueAnomaly 平近点角
+         */
+        function addSatelliteOrbit(semiMajorAxis, eccentricity, inclination, rightAscensionOfAscendingNode, argumentOfPeriapsis, trueAnomaly) {
+          // 转换角度为弧度，因为Cesium使用的是弧度
+          var inclinationRadians = Cesium.Math.toRadians(inclination); // 轨道倾角
+          var rightAscensionRadians = Cesium.Math.toRadians(rightAscensionOfAscendingNode); // 右上升弧度
+          var argumentOfPeriapsisRadians = Cesium.Math.toRadians(argumentOfPeriapsis); // 近地点角距
+          var trueAnomalyRadians = Cesium.Math.toRadians(trueAnomaly); // 平近点角
+
+          // 计算轨道位置
+          var positions = [];
+          for (var angle = 0; angle <= 360; angle++) {
+            var angleRadians = Cesium.Math.toRadians(angle);
+
+            // 使用开普勒方程计算卫星在轨道上的位置
+            var radius = semiMajorAxis * (1 - Math.pow(eccentricity, 2)) / (1 + eccentricity * Math.cos(angleRadians - trueAnomalyRadians));
+            // 计算位置
+            var x = radius * (Math.cos(rightAscensionRadians) * Math.cos(angleRadians + argumentOfPeriapsisRadians - rightAscensionRadians) - Math.sin(rightAscensionRadians) * Math.sin(angleRadians + argumentOfPeriapsisRadians - rightAscensionRadians) * Math.cos(inclinationRadians));
+            var y = radius * (Math.sin(rightAscensionRadians) * Math.cos(angleRadians + argumentOfPeriapsisRadians - rightAscensionRadians) + Math.cos(rightAscensionRadians) * Math.sin(angleRadians + argumentOfPeriapsisRadians - rightAscensionRadians) * Math.cos(inclinationRadians));
+            var z = radius * (Math.sin(inclinationRadians) * Math.sin(angleRadians + argumentOfPeriapsisRadians - rightAscensionRadians));
+
+            positions.push(new Cesium.Cartesian3(x, y, z));
+          }
+
+
+          // 添加实体以表示轨道
+          viewer.entities.add({
+            name: 'Satellite Orbit',
+            polyline: {
+              positions: positions,
+              width: 1,
+              material: Cesium.Color.BLUE, // 这里可以设置不同的颜色或材质
+              loop: true // 闭合线条以创建完整轨道
+            }
+          })
+          
+
+          const p = semiMajorAxis * (1 - eccentricity * eccentricity) // 焦点参数
+          const r = p / (1 + eccentricity * Math.cos(trueAnomalyRadians)) // 根据真近点角计算卫星到中心体的距离
+          let positionInOrbitalPlane = new Cesium.Cartesian3(
+            r * Math.cos(trueAnomalyRadians),
+            r * Math.sin(trueAnomalyRadians),
+            0
+          )
+
+          let rotationMatrix = new Cesium.Matrix3()
+          rotationMatrix = Cesium.Matrix3.multiply(Cesium.Matrix3.fromRotationZ(rightAscensionRadians), Cesium.Matrix3.fromRotationX(inclinationRadians), rotationMatrix)
+          rotationMatrix = Cesium.Matrix3.multiply(rotationMatrix, Cesium.Matrix3.fromRotationZ(argumentOfPeriapsisRadians), rotationMatrix)
+          let positionECEF = Cesium.Matrix3.multiplyByVector(rotationMatrix, positionInOrbitalPlane, new Cesium.Cartesian3())
+          // 添加卫星
+          viewer.entities.add({  
+            position: positionECEF,
+            model : {
+              show: true,
+              uri : '/sat/scene.gltf',
+              scale: 300
+            }  
+          })
+        }
+        
+        // 使用典型的轨道参数调用函数
+        addSatelliteOrbit(24000000, 0.00709480, 0, 11, 11, 12)
+
+        addSatelliteOrbit(24010000, 0.00038190, 0, 11, 11, 13)
+    </script>
+</body>
+</html>
