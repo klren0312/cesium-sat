@@ -46,8 +46,8 @@ function oeToSv (OE, useDegree = true) {
             -Math.sin(Omega), Math.cos(Omega), 0,
             0, 0, 1
         )
-        mat3.multiply(QXx, QXx1, QXx2)
-        mat3.multiply(QXx, QXx, QXx3)
+        mat3.multiply(QXx, QXx2, QXx1)
+        mat3.multiply(QXx, QXx3, QXx)
 
         let RG = vec3.create()
         // mat3.multiply(RG, mat3.transpose(QXx, QXx), rP)
