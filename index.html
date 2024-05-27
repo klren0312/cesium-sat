@@ -1,130 +1,236 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <script src="./gl-matrix-min.js"></script>
-  <script src="./orbit.js"></script>
-  <style>
-    html,
-    body {
-      overflow: hidden;
-      margin: 0px;
-      padding: 0px;
-      height: 100%;
-      font-family: helvetica, arial, sans-serif;
-    }
-    #cesiumContainer {
-      height: 100%;
-    }
-    #loading {
-      width: 100%;
-      height: 100%;
-      background: #000;
-      opacity: 0.8;
-      position: fixed;
-      top:0;
-      left: 0;
-      z-index: 1;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.5s, visibility 0.5s;
-      visibility: visible;
-    }
-    .disappear {
-      opacity: 0!important;
-      visibility: hidden!important;
-    }
-  </style>
-</head>
-<body>
+  <head>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Cesium.js"></script>
+    <link
+      href="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Widgets/widgets.css"
+      rel="stylesheet"
+    />
+    <script src="./gl-matrix-min.js"></script>
+    <script src="./orbit.js"></script>
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        margin: 0px;
+        padding: 0px;
+        height: 100%;
+        font-family: helvetica, arial, sans-serif;
+      }
+      #cesiumContainer {
+        height: 100%;
+      }
+      #loading {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        opacity: 0.8;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s, visibility 0.5s;
+        visibility: visible;
+      }
+      .disappear {
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+      .change-btn {
+        position: fixed;
+        right: 20px;
+        top: 20px;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
     <div id="cesiumContainer"></div>
-    
+    <button class="change-btn" id="js-change-23d">2/3D切换</button>
     <script>
-         // 初始化Cesium viewer
-         var viewer = new Cesium.Viewer('cesiumContainer', {
-          imageryProvider: new Cesium.TileMapServiceImageryProvider({
-            url: Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII"),
-          }),
-          baseLayerPicker: false,
-          geocoder: false,
-          homeButton: false,
-          infoBox: false,
-          skyBox: false,
-          navigationHelpButton: false,
-          sceneModePicker: true
+      // 初始化Cesium viewer
+      var viewer = new Cesium.Viewer("cesiumContainer", {
+        // imageryProvider: new Cesium.TileMapServiceImageryProvider({
+        //   url: Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII"),
+        // }),
+        timeline: false,
+        animation: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        skyBox: false,
+        navigationHelpButton: false,
+        sceneModePicker: false,
+        sceneMode: Cesium.SceneMode.SCENE2D,
+        maximumZoomDistance: Number.POSITIVE_INFINITY,
+      });
+      viewer.scene.globe.enableLighting = false;
+
+      const changeBtn = document.getElementById("js-change-23d");
+      changeBtn.addEventListener("click", () => {
+        if (viewer.scene.mode === Cesium.SceneMode.SCENE3D) {
+          viewer.scene.mode = Cesium.SceneMode.SCENE2D;
+        } else {
+          viewer.scene.mode = Cesium.SceneMode.SCENE3D;
+        }
+      });
+
+      let sat1, sat2
+      /**
+       * 添加卫星和轨道
+       * @param {number} semiMajorAxis 轨道半长轴
+       * @param {number} eccentricity 轨道离心率
+       * @param {number} inclination 轨道倾角
+       * @param {number} rightAscensionOfAscendingNode 右上升角
+       * @param {number} argumentOfPeriapsis 近地点角距
+       * @param {number} trueAnomaly 平近点角
+       */
+      function addSatelliteOrbit(
+        semiMajorAxis,
+        eccentricity,
+        inclination,
+        rightAscensionOfAscendingNode,
+        argumentOfPeriapsis,
+        trueAnomaly,
+        satObj
+      ) {
+        // 转换角度为弧度，因为Cesium使用的是弧度
+        var inclinationRadians = Cesium.Math.toRadians(inclination); // 轨道倾角
+        var rightAscensionRadians = Cesium.Math.toRadians(
+          rightAscensionOfAscendingNode
+        ); // 右上升弧度
+        var argumentOfPeriapsisRadians =
+          Cesium.Math.toRadians(argumentOfPeriapsis); // 近地点角距
+        var trueAnomalyRadians = Cesium.Math.toRadians(trueAnomaly); // 平近点角
+
+        // ==================== 计算卫星位置 start =========================
+        let newPosition = oeToSv({
+          semiajor_axis: semiMajorAxis,
+          eccentric: eccentricity,
+          inclination: inclination,
+          longitudeAccendingNode: rightAscensionOfAscendingNode,
+          argumentOfPericenter: argumentOfPeriapsis,
+          meanAnomaly: trueAnomaly,
         });
-        viewer.scene.globe.enableLighting = false;
-        
-        // 添加卫星轨道
-        /**
-         * 添加卫星轨道
-         * @param {number} semiMajorAxis 轨道半长轴
-         * @param {number} eccentricity 轨道离心率
-         * @param {number} inclination 轨道倾角
-         * @param {number} rightAscensionOfAscendingNode 右上升角
-         * @param {number} argumentOfPeriapsis 近地点角距
-         * @param {number} trueAnomaly 平近点角
-         */
-        function addSatelliteOrbit(semiMajorAxis, eccentricity, inclination, rightAscensionOfAscendingNode, argumentOfPeriapsis, trueAnomaly) {
-          // 转换角度为弧度，因为Cesium使用的是弧度
-          var inclinationRadians = Cesium.Math.toRadians(inclination); // 轨道倾角
-          var rightAscensionRadians = Cesium.Math.toRadians(rightAscensionOfAscendingNode); // 右上升弧度
-          var argumentOfPeriapsisRadians = Cesium.Math.toRadians(argumentOfPeriapsis); // 近地点角距
-          var trueAnomalyRadians = Cesium.Math.toRadians(trueAnomaly); // 平近点角
+        newPosition = new Cesium.Cartesian3(
+          newPosition[0],
+          newPosition[1],
+          newPosition[2]
+        );
+        let sat
+        // 添加卫星
+        if (satObj) {
+          satObj.sat.position = newPosition
+        } else {
+          sat = viewer.entities.add({
+            position: newPosition,
+            point: {
+              color: Cesium.Color.RED,
+              pixelSize: 10,
+              heightReference: Cesium.HeightReference.NONE,
+            },
+          });
+        }
+        // ==================== 计算卫星位置 end =========================
 
-          // 计算轨道位置
-          var orbitPositions = [];
-          for (var angle = 0; angle <= 360; angle++) {
-            const point = oeToSv({
-              semiajor_axis: semiMajorAxis,
-              eccentric: eccentricity,
-              inclination: inclination,
-              longitudeAccendingNode: rightAscensionOfAscendingNode,
-              argumentOfPericenter: argumentOfPeriapsis,
-              meanAnomaly: angle
-            })
-
-            orbitPositions.push(new Cesium.Cartesian3(point[0], point[1], point[2]))
-          }
-
-
-          // 添加实体以表示轨道
-          viewer.entities.add({
-            name: '轨道',
-            polyline: {
-              positions: orbitPositions,
-              width: 1,
-              material: Cesium.Color.BLUE, // 这里可以设置不同的颜色或材质
-              loop: true // 闭合线条以创建完整轨道
-            }
-          })
-
-          let newPosition = oeToSv({
+        // ==================== 计算轨道位置 start =========================
+        var orbitPositions = [];
+        for (var angle = 0; angle <= 360; angle++) {
+          const point = oeToSv({
             semiajor_axis: semiMajorAxis,
             eccentric: eccentricity,
             inclination: inclination,
             longitudeAccendingNode: rightAscensionOfAscendingNode,
             argumentOfPericenter: argumentOfPeriapsis,
-            meanAnomaly: trueAnomaly
-          })
-          newPosition = new Cesium.Cartesian3(newPosition[0], newPosition[1], newPosition[2])
-          // 添加卫星
-          viewer.entities.add({
-            position: newPosition,
-            point: {
-              color: Cesium.Color.RED,
-              pixelSize: 10
-            }
-          })
-        }
-        
-        // 使用典型的轨道参数调用函数
-        addSatelliteOrbit(42000131.7838295, 0.010003257127, 0.9991616499449228, 10.07479915827, 11.207519370549, -170.1310164507369)
+            meanAnomaly: angle,
+          });
+          const coord = new Cesium.Cartesian3(point[0], point[1], point[2]);
 
-        addSatelliteOrbit(42012664.78664729, 0.010042891779282947, 0.9991369213719866, 10.076989514269, 11.62407046, -167.73462303668668)
+          if (viewer.scene.mode === Cesium.SceneMode.SCENE3D) {
+            orbitPositions.push(coord)
+          } else {
+            // 2d模式使用经纬度
+            const ellipsoid = viewer.scene.globe.ellipsoid;
+            const cartograhphic = ellipsoid.cartesianToCartographic(coord);
+            const lat = Cesium.Math.toDegrees(cartograhphic.latitude);
+            const lng = Cesium.Math.toDegrees(cartograhphic.longitude);
+            const alt = cartograhphic.height;
+            orbitPositions.push(Cesium.Cartesian3.fromDegrees(lng, lat, 1));
+          }
+        }
+
+        // 添加实体以表示轨道
+        let orbit
+        if (satObj) {
+          satObj.orbit.polyline.positions = orbitPositions
+        } else {
+          orbit = viewer.entities.add({
+            name: "轨道",
+            polyline: {
+              positions: orbitPositions,
+              width: 1,
+              material: new Cesium.Color(1.0, 1.0, 0.0, 0.5), // 这里可以设置不同的颜色或材质
+              loop: true, // 闭合线条以创建完整轨道
+              heightReference: Cesium.HeightReference.NONE,
+            },
+          });
+        }
+
+        // ==================== 计算轨道位置 end =========================
+
+        return { orbit, sat };
+      }
+
+
+      sat1 = addSatelliteOrbit(
+        9191938.8176,
+        0.240003257127,
+        12.9991616499449228,
+        306.07479915827,
+        314.207519370549,
+        0,
+        sat1
+      );
+
+      sat2 = addSatelliteOrbit(
+        42012664.78664729,
+        0.010042891779282947,
+        0.9991369213719866,
+        10.076989514269,
+        11.62407046,
+        0,
+        sat2
+      );
+      let angle = 0
+      setInterval(() => {
+        addSatelliteOrbit(
+          9191938.8176,
+          0.240003257127,
+          12.9991616499449228,
+          306.07479915827,
+          314.207519370549,
+          angle,
+          sat1
+        );
+
+        addSatelliteOrbit(
+          42012664.78664729,
+          0.010042891779282947,
+          0.9991369213719866,
+          10.076989514269,
+          11.62407046,
+          angle,
+          sat2
+        );
+        ++angle
+      }, 1000);
+
+      // viewer.flyTo(sat1)
     </script>
-</body>
+  </body>
 </html>
