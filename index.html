@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Cesium.js"></script>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Cesium.js"></script>
     <link
-      href="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Widgets/widgets.css"
+      href="https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Widgets/widgets.css"
       rel="stylesheet"
     />
     <script src="./gl-matrix-min.js"></script>
@@ -66,7 +66,7 @@
         skyBox: false,
         navigationHelpButton: false,
         sceneModePicker: false,
-        sceneMode: Cesium.SceneMode.SCENE2D,
+        sceneMode: Cesium.SceneMode.SCENE3D,
         maximumZoomDistance: Number.POSITIVE_INFINITY,
       });
       viewer.scene.globe.enableLighting = false;
@@ -229,8 +229,6 @@
         );
         ++angle
       }, 1000);
-
-      // viewer.flyTo(sat1)
     </script>
   </body>
 </html>
